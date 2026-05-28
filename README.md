@@ -27,9 +27,12 @@ Analyze your Letterboxd export and discover detailed insights about your movie-w
 
 <img width="867" height="432" alt="image" src="https://github.com/user-attachments/assets/ed9fd977-6fe6-45f9-8316-3c02c9e88498" />
 
+
 <img width="1917" height="897" alt="image" src="https://github.com/user-attachments/assets/212694ad-df82-4f09-bc64-b578aa47a684" />
 
+
 <img width="1911" height="843" alt="image" src="https://github.com/user-attachments/assets/4a8aff1f-a77a-4683-8977-a20ab7077700" />
+
 
 <img width="1903" height="842" alt="image" src="https://github.com/user-attachments/assets/a0d7aadf-2d37-499b-a3c1-3130ca1eccd7" />
 
@@ -125,15 +128,9 @@ Planned future improvements:
 * 📱 Improved mobile experience
 * 📤 Shareable wrapped cards
 * ⚡ Faster processing
-* 🌍 Public profile analysis
 * 🎨 Improved animations
 
 ---
-
-# ⭐ Support
-
-If you like the project, consider starring the repository.
-
 
 ## 🤝 Contributions
 
