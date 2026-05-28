@@ -1,0 +1,29 @@
+# Secrets
+.env
+
+# Git
+.git
+
+# Python
+__pycache__/
+*.pyc
+
+# Databases
+*.db
+
+# Uploads
+backend/uploads/
+
+# Node
+node_modules/
+
+# Build folders
+dist/
+build/
+
+# Vercel
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
