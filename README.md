@@ -51,6 +51,10 @@ Analyze your Letterboxd export and discover detailed insights about your movie-w
    ```bash
    Settings → Import & Export
    ```
+   Or directly visit:
+
+   https://letterboxd.com/data/export/
+
 3. Click:
 
    ```bash
