@@ -49,7 +49,7 @@ Analyze your Letterboxd export and discover detailed insights about your movie-w
 2. Go to:
 
    ```bash
-   Settings → Import & Export
+   Settings → Data → Import Your Data 
    ```
    Or directly visit:
 
