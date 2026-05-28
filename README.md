@@ -1,68 +1,50 @@
-# 🎬 Letterboxd Stats
+# 🎬 CineStats
 
-A cinematic Letterboxd analytics dashboard built with React, Vite, and Python.
+A cinematic Letterboxd analytics dashboard built with React, Vite, FastAPI, and TMDB.
 
-Analyze your Letterboxd export and discover detailed insights about your movie-watching habits, ratings, monthly activity, favorites, genres, watch streaks, and more.
+Analyze your Letterboxd export and discover detailed insights about your movie-watching habits, ratings, genres, monthly activity, favorites, and more.
 
 > This project is currently in an early/basic version. More advanced analytics, animations, social features, and wrapped-style storytelling will be added over time.
 
+🌐 Live Demo: https://cinestats.vercel.app/
+
 ---
 
-## ✨ Features
+# ✨ Features
 
-* 📊 Detailed movie statistics
+* 📊 Detailed movie analytics
 * 🎞️ Monthly film strip view
 * 🔥 Watch activity heatmap
 * ⭐ Ratings analysis
-* 📈 Watching trends
 * 🎭 Genre insights
-* 🧠 Personalized analytics
-* ⚡ Fast React + Vite frontend
-* 🐍 Python backend processing
+* 📈 Viewing trends
+* ⚡ Fast React + FastAPI architecture
 * 🎬 Cinematic UI inspired by film culture
 
 ---
 
-## 🛠️ Tech Stack
+# 📸 Screenshots
 
-### Frontend
+<img width="867" height="432" alt="image" src="https://github.com/user-attachments/assets/ed9fd977-6fe6-45f9-8316-3c02c9e88498" />
 
-* React
-* Vite
-* CSS
+<img width="1917" height="897" alt="image" src="https://github.com/user-attachments/assets/212694ad-df82-4f09-bc64-b578aa47a684" />
 
-### Backend
+<img width="1911" height="843" alt="image" src="https://github.com/user-attachments/assets/4a8aff1f-a77a-4683-8977-a20ab7077700" />
 
-* Python
-* Flask/FastAPI
-* CSV processing
+<img width="1903" height="842" alt="image" src="https://github.com/user-attachments/assets/a0d7aadf-2d37-499b-a3c1-3130ca1eccd7" />
 
-### APIs
 
-* TMDB API
+
 
 ---
 
 # 📦 How To Download Your Letterboxd Data
 
 1. Open Letterboxd
-2. Go to:
-
-   ```bash
-   Settings → Data 
-   ```
-   Or directly visit:
-
+2. Visit:
    https://letterboxd.com/data/export/
-
-3. Click:
-
-   ```bash
-   Export Your Data
-   ```
-4. Letterboxd will prepare a ZIP file
-5. Download the ZIP
-6. Upload it into this app
+3. Export your data ZIP
+4. Upload it into CineStats
 
 The app automatically processes:
 
@@ -70,27 +52,40 @@ The app automatically processes:
 * watched.csv
 * ratings.csv
 * reviews.csv
-* and other export files
+* and more
 
 ---
 
-## 🚀 Local Setup
+# 🛠️ Tech Stack
 
-Clone the repository:
+## Frontend
+
+* React
+* Vite
+* CSS
+
+## Backend
+
+* FastAPI
+* Python
+
+## APIs
+
+* TMDB API
+
+---
+
+# 🚀 Local Setup
+
+Clone repository:
 
 ```bash
 git clone https://github.com/tirthharshi-debug/letterboxd-stats.git
 ```
 
-Move into the project folder:
-
-```bash
-cd letterboxd-stats
-```
-
 ---
 
-## 🔹 Frontend Setup
+## Frontend
 
 ```bash
 cd frontend
@@ -100,61 +95,46 @@ npm run dev
 
 ---
 
-## 🔹 Backend Setup
+## Backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
-python app/main.py
+uvicorn app.main:app --reload
 ```
 
 ---
 
-## ⚠️ Environment Variables
+# ⚠️ Environment Variables
 
-Create a `.env` file in the root directory:
+Create `.env` inside backend:
 
 ```env
-TMDB_API_KEY=your_api_key_here
+TMDB_API_KEY=your_api_key
 ```
 
 ---
 
-## 📌 Current Status
+# 📌 Current Status
 
-This is currently the first public/basic version of the project.
+CineStats is currently in its early version.
 
 Planned future improvements:
 
 * 🎬 Better cinematic UI/UX
 * 📱 Improved mobile experience
 * 📤 Shareable wrapped cards
+* ⚡ Faster processing
 * 🌍 Public profile analysis
-* 🤝 Social comparison features
-* 📊 Advanced recommendation engine
-* ⚡ Faster processing and caching
-* 🎨 Improved animations and transitions
+* 🎨 Improved animations
 
 ---
 
-## 📸 Screenshots
+# ⭐ Support
 
-Screenshots and demo previews will be added soon.
+If you like the project, consider starring the repository.
 
----
-
-## 🌐 Live Demo
-
-Coming soon.
-
----
 
 ## 🤝 Contributions
 
 Suggestions, feedback, and contributions are welcome.
-
----
-
-## ⭐ Support
-
-If you like the project, consider starring the repository.
