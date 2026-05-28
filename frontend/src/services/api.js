@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '/api',
+    baseURL: 'https://letterboxd-stats-vuaq.onrender.com/api',
     timeout: 30000, // 30s — uploads are fast now since processing is background
 });
 
