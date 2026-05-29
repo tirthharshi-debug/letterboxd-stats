@@ -6,6 +6,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 import asyncio
 import traceback
+import os
+import shutil
 
 from app.services.file_service import (
     extract_zip, parse_diary, parse_ratings, parse_watched,
@@ -48,6 +50,7 @@ def _reset_state():
 
 async def _process_in_background(file_bytes: bytes):
     """Run the full pipeline in the background."""
+    extract_path = None
     try:
         _state["status"] = "extracting"
 
@@ -129,6 +132,11 @@ async def _process_in_background(file_bytes: bytes):
         _state["status"] = "error"
         _state["error"] = str(e)
         traceback.print_exc()
+
+    finally:
+        # Clean up extracted files to prevent disk usage growth
+        if extract_path and os.path.isdir(extract_path):
+            shutil.rmtree(extract_path, ignore_errors=True)
 
 
 @router.post("/upload")
