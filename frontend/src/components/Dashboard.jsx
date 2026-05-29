@@ -7,7 +7,7 @@ import MonthlyFilmStrip from './MonthlyFilmStrip';
 import { LightRays } from './LightRays';
 import { GLOW, TMDB_IMG, StickyNav, GlowStat, SectionTitle, ChartCard, DataRow, PersonCard, ComparisonFilm, formatDate, formatRuntime } from './DashboardParts';
 
-export default function Dashboard({ data }) {
+export default function Dashboard({ data, jobId }) {
     const [downloading, setDownloading] = useState(false);
     const { stats, meta } = data;
     const { basic, pro, patron, advanced, community_comparison, binge_stats, monthly_activity, decade_leaderboard } = stats;
@@ -17,13 +17,14 @@ export default function Dashboard({ data }) {
     const handleDownloadPdf = useCallback(async () => {
         setDownloading(true);
         try {
-            const resp = await axios.get('/api/export/pdf', { responseType: 'blob' });
+            const pdfUrl = jobId ? `/api/export/pdf/${jobId}` : '/api/export/pdf';
+            const resp = await axios.get(pdfUrl, { responseType: 'blob' });
             const url = window.URL.createObjectURL(new Blob([resp.data]));
             const a = document.createElement('a'); a.href = url; a.download = 'CineStats_Report.pdf'; a.click();
             window.URL.revokeObjectURL(url);
         } catch (e) { console.error('PDF failed:', e); }
         finally { setDownloading(false); }
-    }, []);
+    }, [jobId]);
 
     return (
         <div className="min-h-screen" style={{ background: 'var(--color-bg-void)' }}>
@@ -139,7 +140,7 @@ export default function Dashboard({ data }) {
                                 return (
                                     <div key={d.decade} className="card anim-fade-up">
                                         <div className="flex items-center gap-3 mb-3">
-                                            {i < 3 ? <span className="text-2xl">{medals[i]}</span> : <span className="text-sm font-bold" style={{ color: 'var(--color-text-muted)' }}>#{i+1}</span>}
+                                            {i < 3 ? <span className="text-2xl">{medals[i]}</span> : <span className="text-sm font-bold" style={{ color: 'var(--color-text-muted)' }}>#{i + 1}</span>}
                                             <div>
                                                 <p className="text-lg font-bold" style={{ color: '#f4f4f5' }}>{d.decade}</p>
                                                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{d.film_count} films</p>
@@ -194,7 +195,7 @@ export default function Dashboard({ data }) {
                             <SectionTitle icon={Film} sub="The filmmakers behind your favorites" id="people-title">Directors</SectionTitle>
                             {da.director_frequency && (
                                 <div className="flex flex-wrap gap-4 mb-8 justify-center">
-                                    {Object.entries(da.director_frequency).sort((a,b) => b[1]-a[1]).slice(0,8).map(([name,count],i) => {
+                                    {Object.entries(da.director_frequency).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count], i) => {
                                         const info = da.director_profiles?.[name];
                                         return <PersonCard key={name} name={name} count={count} profilePath={info?.profile_path} rank={i} avgRating={da.director_vs_average?.[name]?.avg} subtitle={`${count} films`} />;
                                     })}
@@ -225,7 +226,7 @@ export default function Dashboard({ data }) {
                             <SectionTitle icon={Star} sub="Your most-seen performers">Actors</SectionTitle>
                             {aa.top_10_actors && (
                                 <div className="flex flex-wrap gap-4 mb-8 justify-center">
-                                    {aa.top_10_actors.slice(0,8).map((a,i) => <PersonCard key={a.name} name={a.name} count={a.count} profilePath={a.profile_path} rank={i} subtitle={`${a.count} films`} />)}
+                                    {aa.top_10_actors.slice(0, 8).map((a, i) => <PersonCard key={a.name} name={a.name} count={a.count} profilePath={a.profile_path} rank={i} subtitle={`${a.count} films`} />)}
                                 </div>
                             )}
                             <ChartCard title="Top Actors" titleColor={GLOW.green.text}><FrequencyBarChart data={aa.actor_frequency_distribution} color="#00e054" /></ChartCard>

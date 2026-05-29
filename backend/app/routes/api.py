@@ -1,6 +1,6 @@
 """
 API routes for the Letterboxd analytics application.
-Uses background processing to avoid HTTP timeouts during TMDB enrichment.
+Uses background processing with per-job state to support multiple simultaneous users.
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -8,6 +8,8 @@ import asyncio
 import traceback
 import os
 import shutil
+import uuid
+import time
 
 from app.services.file_service import (
     extract_zip, parse_diary, parse_ratings, parse_watched,
@@ -24,40 +26,87 @@ from app.services.cache_service import stats as cache_stats
 
 router = APIRouter()
 
-# ─── In-memory state for background processing ───
-_state = {
-    "status": "idle",       # idle | extracting | parsing | enriching | computing | done | error
-    "current": 0,
-    "total": 0,
-    "result": None,
-    "error": None,
-    "basic_stats": None,    # Available early (before TMDB)
-    "pro_stats": None,      # Available early (before TMDB)
-}
+# ─── Per-job state for background processing ───
+# Each job_id maps to its own state dict, enabling multiple simultaneous users.
+_jobs: dict[str, dict] = {}
+
+# Cleanup settings
+_CLEANUP_INTERVAL = 600   # 10 minutes
+_JOB_TTL = 1800           # 30 minutes after completion
 
 
-def _reset_state():
-    _state.update({
-        "status": "idle",
+def _new_job() -> tuple[str, dict]:
+    """Create a new job with a unique ID and return (job_id, job_state)."""
+    job_id = uuid.uuid4().hex
+    job = {
+        "status": "idle",        # idle | extracting | parsing | enriching | computing | done | error
         "current": 0,
         "total": 0,
         "result": None,
         "error": None,
-        "basic_stats": None,
-        "pro_stats": None,
-    })
+        "basic_stats": None,     # Available early (before TMDB)
+        "pro_stats": None,       # Available early (before TMDB)
+        "created_at": time.time(),
+        "finished_at": None,
+    }
+    _jobs[job_id] = job
+    return job_id, job
 
 
-async def _process_in_background(file_bytes: bytes):
-    """Run the full pipeline in the background."""
+def _get_job(job_id: str) -> dict:
+    """Look up a job by ID, raising 404 if not found."""
+    job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+def _latest_job() -> dict | None:
+    """Return the most recently created job, or None."""
+    if not _jobs:
+        return None
+    return _jobs[max(_jobs, key=lambda k: _jobs[k]["created_at"])]
+
+
+async def _cleanup_old_jobs():
+    """Periodically remove completed/errored jobs older than _JOB_TTL."""
+    while True:
+        await asyncio.sleep(_CLEANUP_INTERVAL)
+        now = time.time()
+        expired = [
+            jid for jid, job in _jobs.items()
+            if job["status"] in ("done", "error")
+            and job.get("finished_at")
+            and (now - job["finished_at"]) > _JOB_TTL
+        ]
+        for jid in expired:
+            _jobs.pop(jid, None)
+        if expired:
+            print(f"[Cleanup] Evicted {len(expired)} old job(s)")
+
+
+# Start the cleanup loop when this module is first imported by FastAPI
+_cleanup_task: asyncio.Task | None = None
+
+
+def _ensure_cleanup_started():
+    """Start the cleanup background task if not already running."""
+    global _cleanup_task
+    if _cleanup_task is None or _cleanup_task.done():
+        _cleanup_task = asyncio.create_task(_cleanup_old_jobs())
+
+
+async def _process_in_background(job_id: str, file_bytes: bytes):
+    """Run the full pipeline in the background for a specific job."""
+    job = _jobs[job_id]
     extract_path = None
     try:
-        _state["status"] = "extracting"
+        job["status"] = "extracting"
 
         # 1. Extract ZIP
         extract_path = extract_zip(file_bytes)
 
-        _state["status"] = "parsing"
+        job["status"] = "parsing"
 
         # 2. Parse CSVs
         diary_df = parse_diary(extract_path)
@@ -71,27 +120,27 @@ async def _process_in_background(file_bytes: bytes):
         pro_stats = compute_pro_stats(diary_df, ratings_df)
 
         # Make these available for early display while TMDB enrichment runs
-        _state["basic_stats"] = basic_stats
-        _state["pro_stats"] = pro_stats
+        job["basic_stats"] = basic_stats
+        job["pro_stats"] = pro_stats
 
         # 4. Get unique movies for TMDB enrichment
         unique_movies = get_unique_movies(diary_df, watched_df, ratings_df)
-        _state["total"] = len(unique_movies)
-        _state["status"] = "enriching"
+        job["total"] = len(unique_movies)
+        job["status"] = "enriching"
 
         # 5. Enrich movies via TMDB (this is the slow part)
         tmdb_service = TMDBService()
 
         async def update_progress(current: int, total: int):
-            _state["current"] = current
-            _state["total"] = total
+            job["current"] = current
+            job["total"] = total
 
         try:
             enriched = await tmdb_service.enrich_batch(unique_movies, update_progress)
         finally:
             await tmdb_service.close()
 
-        _state["status"] = "computing"
+        job["status"] = "computing"
 
         # 6. Compute patron + advanced stats
         patron_stats = compute_patron_stats(enriched, diary_df, ratings_df)
@@ -105,8 +154,9 @@ async def _process_in_background(file_bytes: bytes):
             enriched, pro_stats.get("_decade_ratings", {})
         )
 
-        _state["status"] = "done"
-        _state["result"] = {
+        job["status"] = "done"
+        job["finished_at"] = time.time()
+        job["result"] = {
             "success": True,
             "stats": {
                 "basic": basic_stats,
@@ -129,8 +179,9 @@ async def _process_in_background(file_bytes: bytes):
         }
 
     except Exception as e:
-        _state["status"] = "error"
-        _state["error"] = str(e)
+        job["status"] = "error"
+        job["error"] = str(e)
+        job["finished_at"] = time.time()
         traceback.print_exc()
 
     finally:
@@ -139,55 +190,131 @@ async def _process_in_background(file_bytes: bytes):
             shutil.rmtree(extract_path, ignore_errors=True)
 
 
+# ─── Endpoints ───────────────────────────────────────────────────────────────
+
+
 @router.post("/upload")
 async def upload_zip(file: UploadFile = File(...)):
     """
     Upload a Letterboxd export ZIP. Kicks off background processing
-    and returns immediately. Poll /progress for status, /results for data.
+    and returns immediately with a job_id. Poll /progress/{job_id} for status.
     """
     if not file.filename.endswith('.zip'):
         raise HTTPException(status_code=400, detail="Please upload a .zip file")
 
-    if _state["status"] not in ("idle", "done", "error"):
-        raise HTTPException(status_code=409, detail="A file is already being processed")
-
-    _reset_state()
+    job_id, job = _new_job()
 
     contents = await file.read()
 
-    # Fire and forget — runs in the background
-    asyncio.create_task(_process_in_background(contents))
+    # Ensure the cleanup loop is running
+    _ensure_cleanup_started()
 
-    return {"success": True, "message": "Processing started"}
+    # Fire and forget — runs in the background
+    asyncio.create_task(_process_in_background(job_id, contents))
+
+    return {"success": True, "message": "Processing started", "job_id": job_id}
+
+
+@router.get("/progress/{job_id}")
+async def get_progress_by_id(job_id: str):
+    """Get processing progress for a specific job."""
+    job = _get_job(job_id)
+    resp = {
+        "status": job["status"],
+        "current": job["current"],
+        "total": job["total"],
+    }
+    if job["error"]:
+        resp["error"] = job["error"]
+    if job["basic_stats"]:
+        resp["basic_stats"] = job["basic_stats"]
+    if job["pro_stats"]:
+        resp["pro_stats"] = job["pro_stats"]
+    return resp
+
+
+@router.get("/results/{job_id}")
+async def get_results_by_id(job_id: str):
+    """Fetch final analytics for a specific job."""
+    job = _get_job(job_id)
+    if job["status"] == "done" and job["result"]:
+        return job["result"]
+    elif job["status"] == "error":
+        raise HTTPException(status_code=500, detail=job.get("error", "Processing failed"))
+    else:
+        raise HTTPException(status_code=202, detail="Still processing")
+
+
+@router.get("/export/pdf/{job_id}")
+async def export_pdf_by_id(job_id: str):
+    """Generate and download a CineStats PDF summary for a specific job."""
+    job = _get_job(job_id)
+    if job["status"] != "done" or not job["result"]:
+        raise HTTPException(status_code=400, detail="No analysis data available. Upload and process a file first.")
+
+    from app.services.export_service import generate_pdf
+    pdf_buffer = generate_pdf(job["result"])
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=CineStats_Report.pdf"}
+    )
+
+
+# ─── Backward-compatible shim endpoints (no job_id) ─────────────────────────
+# These find the most recent job so the app works even without frontend changes.
 
 
 @router.get("/progress")
 async def get_progress():
-    """Get current processing progress. Returns early stats when available."""
+    """Get progress for the most recent job (backward compat)."""
+    job = _latest_job()
+    if not job:
+        return {"status": "idle", "current": 0, "total": 0}
     resp = {
-        "status": _state["status"],
-        "current": _state["current"],
-        "total": _state["total"],
+        "status": job["status"],
+        "current": job["current"],
+        "total": job["total"],
     }
-    if _state["error"]:
-        resp["error"] = _state["error"]
-    # Include early stats so frontend can show something while TMDB runs
-    if _state["basic_stats"]:
-        resp["basic_stats"] = _state["basic_stats"]
-    if _state["pro_stats"]:
-        resp["pro_stats"] = _state["pro_stats"]
+    if job["error"]:
+        resp["error"] = job["error"]
+    if job["basic_stats"]:
+        resp["basic_stats"] = job["basic_stats"]
+    if job["pro_stats"]:
+        resp["pro_stats"] = job["pro_stats"]
     return resp
 
 
 @router.get("/results")
 async def get_results():
-    """Fetch the final computed analytics. Only available after status=done."""
-    if _state["status"] == "done" and _state["result"]:
-        return _state["result"]
-    elif _state["status"] == "error":
-        raise HTTPException(status_code=500, detail=_state.get("error", "Processing failed"))
+    """Fetch results for the most recent job (backward compat)."""
+    job = _latest_job()
+    if not job:
+        raise HTTPException(status_code=400, detail="No processing has been started")
+    if job["status"] == "done" and job["result"]:
+        return job["result"]
+    elif job["status"] == "error":
+        raise HTTPException(status_code=500, detail=job.get("error", "Processing failed"))
     else:
         raise HTTPException(status_code=202, detail="Still processing")
+
+
+@router.get("/export/pdf")
+async def export_pdf():
+    """Generate PDF for the most recent job (backward compat)."""
+    job = _latest_job()
+    if not job or job["status"] != "done" or not job["result"]:
+        raise HTTPException(status_code=400, detail="No analysis data available. Upload and process a file first.")
+
+    from app.services.export_service import generate_pdf
+    pdf_buffer = generate_pdf(job["result"])
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=CineStats_Report.pdf"}
+    )
 
 
 @router.get("/cache-stats")
@@ -200,19 +327,3 @@ async def get_cache_stats():
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
-
-
-@router.get("/export/pdf")
-async def export_pdf():
-    """Generate and download a CineStats PDF summary."""
-    if _state["status"] != "done" or not _state["result"]:
-        raise HTTPException(status_code=400, detail="No analysis data available. Upload and process a file first.")
-
-    from app.services.export_service import generate_pdf
-    pdf_buffer = generate_pdf(_state["result"])
-
-    return StreamingResponse(
-        pdf_buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=CineStats_Report.pdf"}
-    )

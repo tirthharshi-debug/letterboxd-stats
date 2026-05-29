@@ -13,17 +13,18 @@ export default function UploadPage({ onDataLoaded }) {
     const [progress, setProgress] = useState({ status: 'idle', current: 0, total: 0 });
     const [error, setError] = useState(null);
     const pollRef = useRef(null);
+    const jobIdRef = useRef(null);
 
-    const startPolling = useCallback(() => {
+    const startPolling = useCallback((jobId) => {
         if (pollRef.current) clearInterval(pollRef.current);
         pollRef.current = setInterval(async () => {
             try {
-                const p = await getProgress();
+                const p = await getProgress(jobId);
                 setProgress(p);
                 if (p.status === 'done') {
                     clearInterval(pollRef.current);
-                    const results = await getResults();
-                    onDataLoaded(results);
+                    const results = await getResults(jobId);
+                    onDataLoaded(results, jobId);
                 } else if (p.status === 'error') {
                     clearInterval(pollRef.current);
                     setError(p.error || 'Processing failed.');
@@ -44,9 +45,11 @@ export default function UploadPage({ onDataLoaded }) {
         setPhase('uploading');
         setUploadPct(0);
         try {
-            await uploadZip(file, setUploadPct);
+            const resp = await uploadZip(file, setUploadPct);
+            const jobId = resp.job_id;
+            jobIdRef.current = jobId;
             setPhase('processing');
-            startPolling();
+            startPolling(jobId);
         } catch (err) {
             setError(err.response?.data?.detail || err.message || 'Upload failed.');
             setPhase('idle');

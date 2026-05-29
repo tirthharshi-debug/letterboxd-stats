@@ -17,16 +17,18 @@ export async function uploadZip(file, onUploadProgress) {
             }
         },
     });
+    return response.data; // Now includes { success, message, job_id }
+}
+
+export async function getProgress(jobId) {
+    const url = jobId ? `/progress/${jobId}` : '/progress';
+    const response = await api.get(url);
     return response.data;
 }
 
-export async function getProgress() {
-    const response = await api.get('/progress');
-    return response.data;
-}
-
-export async function getResults() {
-    const response = await api.get('/results');
+export async function getResults(jobId) {
+    const url = jobId ? `/results/${jobId}` : '/results';
+    const response = await api.get(url);
     return response.data;
 }
 
