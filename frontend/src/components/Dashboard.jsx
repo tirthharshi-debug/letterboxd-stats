@@ -6,6 +6,7 @@ import { RatingDistChart, FilmsPerYearChart, GenrePieChart, RatingTrendChart, Fr
 import MonthlyFilmStrip from './MonthlyFilmStrip';
 import { LightRays } from './LightRays';
 import { GLOW, TMDB_IMG, StickyNav, GlowStat, SectionTitle, ChartCard, DataRow, PersonCard, ComparisonFilm, formatDate, formatRuntime } from './DashboardParts';
+import { Footer } from './Layout';
 
 export default function Dashboard({ data, jobId }) {
     const [downloading, setDownloading] = useState(false);
@@ -315,12 +316,7 @@ export default function Dashboard({ data, jobId }) {
                 </section>
             </main>
 
-            <footer className="relative z-10 text-center py-10">
-                <div style={{ width: 160, height: 1, margin: '0 auto 1rem', background: 'linear-gradient(90deg, transparent, rgba(0,224,84,0.15), transparent)' }} />
-                <p className="text-xs tracking-wider uppercase font-semibold flex items-center justify-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
-                    <Film size={12} /> CineStats
-                </p>
-            </footer>
+            <Footer />
         </div>
     );
 }

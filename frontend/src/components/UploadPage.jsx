@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Film, Star, Sparkles, AlertCircle, Clock, BarChart3 } from 'lucide-react';
 import { uploadZip, getProgress, getResults } from '../services/api';
 import { LightRays } from './LightRays';
+import { Header } from './Layout';
 
 const ease = [0.16, 1, 0.3, 1];
 
@@ -72,7 +73,8 @@ export default function UploadPage({ onDataLoaded }) {
     const isProcessing = phase === 'uploading' || phase === 'processing';
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden" style={{ background: 'var(--color-bg-void)' }}>
+        <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden" style={{ background: 'var(--color-bg-void)', paddingTop: '4rem' }}>
+            <Header />
             <LightRays
                 raysOrigin="top-center"
                 raysColor="#006630"

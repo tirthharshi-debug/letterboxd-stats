@@ -311,4 +311,27 @@ body {
   .drop-zone { padding: 2.5rem 1.25rem; }
   .person-card { width: 100px; padding: 0.75rem; }
   .person-photo, .person-photo-fallback, .person-photo-wrap { width: 56px; height: 56px; }
+  .site-footer > div > div:last-child { justify-content: flex-start; }
 }
+
+/* ═══════════════════════════════════════ */
+/*         SOCIAL ICON HOVER              */
+/* ═══════════════════════════════════════ */
+.header-social-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.55;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.header-social-icon:hover {
+  opacity: 1;
+  transform: translateY(-2px) scale(1.1);
+  filter: brightness(1.2);
+}
+
+/* Brand colors */
+.social-letterboxd { color: #00e054; }
+.social-letterboxd:hover { color: #00e054; filter: brightness(1.15) drop-shadow(0 0 6px rgba(0,224,84,0.3)); }
+.social-github { color: #9ca3af; }
+.social-github:hover { color: #f4f4f5; filter: brightness(1.2) drop-shadow(0 0 6px rgba(255,255,255,0.15)); }
